@@ -13,9 +13,6 @@ def main(args):
     # 이미지 파일 경로
     selected_image_name = args.image_name
 
-    # 바운딩 박스 좌표 (x_min, y_min, x_max, y_max)
-    bbox_coordinates = (100, 100, 200, 200)
-
     # json 파일 읽기
     with open(os.path.join(root, 'annotations.json'), 'r') as json_file:
         data = json.load(json_file)
