@@ -1,2 +1,4 @@
 Dataset/
 bbox/bbox_show/
+EAST/path/east_vgg16.pth
+EAST/path/vgg16_bn-6c64b313.pth
