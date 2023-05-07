@@ -366,6 +366,68 @@ def extract_vertices(lines):
 		labels.append(label)
 	return np.array(vertices), np.array(labels)
 
+def affine_transform(img, vertices):
+	''' apply an affine transformation to the image 
+	Input:
+		img         : PIL Image
+		vertices    : vertices of text regions <numpy.ndarray, (n,8)>
+	Output:
+		img			: Transformed images
+		vertices	: Transformed vertices <numpy.ndarray, (n,8)>
+	'''
+	img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+	h, w = img.shape[:2]
+	src_vertices = np.array(vertices, dtype=np.float32).reshape(-1, 1, 2)
+
+	affine_ratio = np.random.randint(9, 31)
+	direction_num = np.random.randint(2)
+
+	if direction_num == 1:
+		src_points = np.array([[0,0], [w,0], [w, h]], dtype=np.float32)
+		dst_points = np.array([[0, 0], [w - w/affine_ratio, w/affine_ratio], [w, h]], dtype=np.float32)
+
+	else:
+		src_points = np.array([[0,0], [h,0], [w, h]], dtype=np.float32)
+		dst_points = np.array([[0, 0], [h - h/affine_ratio, h/affine_ratio], [w, h]], dtype=np.float32)
+
+	affine_matrix = cv2.getAffineTransform(src_points, dst_points)
+
+	transformed_img = cv2.warpAffine(img, affine_matrix, (int(w), int(h)))
+	transformed_img_pil = Image.fromarray(cv2.cvtColor(transformed_img, cv2.COLOR_BGR2RGB))
+	transformed_vertices = cv2.transform(src_vertices, affine_matrix)
+
+	return transformed_img_pil, transformed_vertices.reshape(-1, 8)
+
+def perspect_transform(img, vertices):
+	''' apply an perspective transformation to the image 
+	Input:
+		img         : PIL Image
+		vertices    : vertices of text regions <numpy.ndarray, (n,8)>
+	Output:
+		img			: Transformed images
+		vertices	: Transformed vertices <numpy.ndarray, (n,8)>
+	'''
+	img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+	h, w = img.shape[:2]
+	src_vertices = np.array(vertices, dtype=np.float32).reshape(-1, 1, 2)
+
+	pers_ratio = np.random.randint(8, 31)
+	direction_num = np.random.randint(2)
+
+	if direction_num == 1:
+		src_points = np.array([[0, 0], [w, 0], [0, h], [w, h]], dtype=np.float32)
+		dst_points = np.array([[0, 0], [w - w/pers_ratio, h/pers_ratio], [0, h], [w - w/pers_ratio, h - h/pers_ratio]], dtype=np.float32)
+	else:
+		src_points = np.array([[0, 0], [w, 0], [0, h], [w, h]], dtype=np.float32)
+		dst_points = np.array([[w/pers_ratio, h/pers_ratio], [w, 0], [w/pers_ratio, h - h/pers_ratio], [w, h]], dtype=np.float32)        
+
+	perspect_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+
+	transformed_img = cv2.warpPerspective(img, perspect_matrix, (int(w), int(h)))
+	transformed_img_pil = Image.fromarray(cv2.cvtColor(transformed_img, cv2.COLOR_BGR2RGB))
+	transformed_vertices = cv2.perspectiveTransform(src_vertices, perspect_matrix)
+
+	return transformed_img_pil, transformed_vertices.reshape(-1, 8)
 	
 class custom_dataset(data.Dataset):
 	def __init__(self, img_path, gt_path, scale=0.25, length=512):
@@ -384,13 +446,14 @@ class custom_dataset(data.Dataset):
 		vertices, labels = extract_vertices(lines)
 		
 		img = Image.open(self.img_files[index])
-		img, vertices = adjust_height(img, vertices) 
+		img, vertices = affine_transform(img, vertices)
+		img, vertices = perspect_transform(img, vertices)
+		img, vertices = adjust_height(img, vertices)
 		img, vertices = rotate_img(img, vertices)
-		img, vertices = crop_img(img, vertices, labels, self.length) 
+		img, vertices = crop_img(img, vertices, labels, self.length)
 		transform = transforms.Compose([transforms.ColorJitter(0.5, 0.5, 0.5, 0.25), \
                                         transforms.ToTensor(), \
                                         transforms.Normalize(mean=(0.5,0.5,0.5),std=(0.5,0.5,0.5))])
 		
 		score_map, geo_map, ignored_map = get_score_geo(img, vertices, labels, self.scale, self.length)
 		return transform(img), score_map, geo_map, ignored_map
-

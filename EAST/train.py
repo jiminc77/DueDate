@@ -55,13 +55,13 @@ def train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers,
 
 
 if __name__ == '__main__':
-	train_img_path = os.path.abspath('../ICDAR_2015/train_img')
-	train_gt_path  = os.path.abspath('../ICDAR_2015/train_gt')
+	train_img_path = os.path.abspath('/home/jovyan/DueDate/Dataset/Products-Real/train/images')
+	train_gt_path  = os.path.abspath('/home/jovyan/DueDate/Dataset/Products-Real/train/annotations(txt)')
 	pths_path      = './pths'
-	batch_size     = 24 
+	batch_size     = 32 
 	lr             = 1e-3
 	num_workers    = 4
-	epoch_iter     = 600
+	epoch_iter     = 100
 	save_interval  = 5
-	train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers, epoch_iter, save_interval)	
+	train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers, epoch_iter, save_interval)
 	

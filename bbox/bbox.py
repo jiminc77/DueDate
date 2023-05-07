@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 def main(args):
 
     # 폴더 경로
-    root = "/home/jovyan/DueDate/Dataset/Products-Real/train"
+    root = "/home/jovyan/DueDate/Dataset/Products-Real/evaluation"
 
     # 이미지 파일 경로
     selected_image_name = args.image_name
