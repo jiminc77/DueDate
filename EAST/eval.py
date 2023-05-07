@@ -34,7 +34,7 @@ def eval_model(model_name, test_img_path, submit_path, save_flag=True):
 
 
 if __name__ == '__main__': 
-	model_name = './pths/east_vgg16.pth'
-	test_img_path = os.path.abspath('../ICDAR_2015/test_img')
-	submit_path = './submit'
+	model_name = '/home/jovyan/DueDate/EAST/pths/model_epoch_35.pth'
+	test_img_path = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images'
+	submit_path = '/home/jovyan/DueDate/EAST/submit'
 	eval_model(model_name, test_img_path, submit_path)

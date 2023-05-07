@@ -181,8 +181,8 @@ def detect_dataset(model, device, test_img_path, submit_path):
 
 
 if __name__ == '__main__':
-	img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/train/images/img_00001.jpg'
-	model_path  = './pths/model_epoch_20.pth'
+	img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images/test_00217.jpg'
+	model_path  = './pths/model_epoch_100.pth'
 	res_img     = './res.bmp'
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	model = EAST().to(device)
