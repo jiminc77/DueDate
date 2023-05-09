@@ -34,7 +34,7 @@ def eval_model(model_name, test_img_path, submit_path, save_flag=True):
 
 
 if __name__ == '__main__': 
-	model_name = '/home/jovyan/DueDate/EAST/pths/model_epoch_35.pth'
+	model_name = '/home/jovyan/DueDate/EAST/pths/model_epoch_100.pth'
 	test_img_path = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images'
 	submit_path = '/home/jovyan/DueDate/EAST/submit'
 	eval_model(model_name, test_img_path, submit_path)
