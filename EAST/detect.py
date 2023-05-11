@@ -181,14 +181,29 @@ def detect_dataset(model, device, test_img_path, submit_path):
 
 
 if __name__ == '__main__':
-	img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images/test_00217.jpg'
-	model_path  = './pths/model_epoch_100.pth'
+	img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images/test_00001.jpg'
+	# img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/real_images/real_test_5.jpg'
+	model_path  = './pths/Test_2/model_epoch_200.pth'
 	res_img     = './res.bmp'
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	model = EAST().to(device)
 	model.load_state_dict(torch.load(model_path))
 	model.eval()
 	img = Image.open(img_path)
+ 	# PIL 이미지 회전시
+	if hasattr(img, '_getexif'):
+		orientation = 0x0112
+		exif = img._getexif()
+		if exif is not None:
+			orientation = exif[orientation]
+			if orientation in [3, 6, 8]:
+				# 이미지 회전
+				if orientation == 3:
+					img = img.transpose(Image.ROTATE_180)
+				elif orientation == 6:
+					img = img.transpose(Image.ROTATE_270)
+				elif orientation == 8:
+					img = img.transpose(Image.ROTATE_90)
 	
 	boxes = detect(img, model, device)
 	plot_img = plot_boxes(img, boxes)	

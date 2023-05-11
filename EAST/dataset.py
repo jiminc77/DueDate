@@ -293,6 +293,50 @@ def rotate_img(img, vertices, angle_range=10):
 		new_vertices[i,:] = rotate_vertices(vertice, -angle / 180 * math.pi, np.array([[center_x],[center_y]]))
 	return img, new_vertices
 
+def rotate_img_and_resize(img, vertices, angle_range=(-170, 170)):
+    '''rotate image and resize to original size
+    Input:
+        img         : PIL Image
+        vertices    : vertices of text regions <numpy.ndarray, (n,8)>
+        angle_range : rotate range
+    Output:
+        img         : rotated and resized PIL Image
+        new_vertices: rotated vertices
+    '''
+
+    # 각도 범위에서 무작위 각도 선택
+    rotation_angle = np.random.uniform(*angle_range)
+
+    # 이미지의 크기 및 중심 계산
+    width, height = img.size
+    cx, cy = width // 2, height // 2
+
+    # PIL 이미지를 회전
+    img = img.rotate(rotation_angle, resample=Image.BILINEAR, expand=True)
+
+    # 회전 후의 이미지 크기 계산
+    new_width, new_height = img.size
+    new_cx, new_cy = new_width // 2, new_height // 2
+
+    # 정점 좌표를 회전하기 위해 넘파이 배열로 변환
+    vertices = vertices.reshape(-1, 2)
+
+    # 원본 이미지의 중심을 원점으로 이동
+    vertices -= np.array([cx, cy])
+
+    # 라디안 단위로 각도 변환
+    theta = -np.radians(rotation_angle)
+
+    # 회전 행렬 생성
+    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+
+    # 정점 좌표 회전
+    new_vertices = np.dot(vertices, rotation_matrix.T)
+
+    # 회전된 이미지의 중심으로 이동
+    new_vertices += np.array([new_cx, new_cy])
+
+    return img, new_vertices
 
 def get_score_geo(img, vertices, labels, scale, length):
 	'''generate score gt and geometry gt
@@ -330,7 +374,7 @@ def get_score_geo(img, vertices, labels, scale, length):
 		rotated_vertices = rotate_vertices(vertice, theta)
 		x_min, x_max, y_min, y_max = get_boundary(rotated_vertices)
 		rotated_x, rotated_y = rotate_all_pixels(rotate_mat, vertice[0], vertice[1], length)
-	
+
 		d1 = rotated_y - y_min
 		d1[d1<0] = 0
 		d2 = y_max - rotated_y
@@ -446,11 +490,12 @@ class custom_dataset(data.Dataset):
 		vertices, labels = extract_vertices(lines)
 		
 		img = Image.open(self.img_files[index])
+		img, vertices = rotate_img_and_resize(img, vertices)
 		img, vertices = affine_transform(img, vertices)
 		img, vertices = perspect_transform(img, vertices)
 		img, vertices = adjust_height(img, vertices)
-		img, vertices = rotate_img(img, vertices)
-		img, vertices = crop_img(img, vertices, labels, self.length)
+		# img, vertices = rotate_img(img, vertices)
+		# img, vertices = crop_img(img, vertices, labels, self.length)
 		transform = transforms.Compose([transforms.ColorJitter(0.5, 0.5, 0.5, 0.25), \
                                         transforms.ToTensor(), \
                                         transforms.Normalize(mean=(0.5,0.5,0.5),std=(0.5,0.5,0.5))])
