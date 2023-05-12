@@ -7,6 +7,8 @@ import os
 import torch
 import torchvision.transforms as transforms
 from torch.utils import data
+from multiprocessing import Pool
+import functools
 
 
 def cal_distance(x1, y1, x2, y2):
@@ -183,6 +185,51 @@ def is_cross_text(start_loc, length, vertices):
 	return False
 		
 
+# def crop_img(img, vertices, labels, length):
+# 	'''crop img patches to obtain batch and augment
+# 	Input:
+# 		img         : PIL Image
+# 		vertices    : vertices of text regions <numpy.ndarray, (n,8)>
+# 		labels      : 1->valid, 0->ignore, <numpy.ndarray, (n,)>
+# 		length      : length of cropped image region
+# 	Output:
+# 		region      : cropped image region
+# 		new_vertices: new vertices in cropped region
+# 	'''
+# 	h, w = img.height, img.width
+# 	# confirm the shortest side of image >= length
+# 	if h >= w and w < length:
+# 		img = img.resize((length, int(h * length / w)), Image.BILINEAR)
+# 	elif h < w and h < length:
+# 		img = img.resize((int(w * length / h), length), Image.BILINEAR)
+# 	ratio_w = img.width / w
+# 	ratio_h = img.height / h
+# 	assert(ratio_w >= 1 and ratio_h >= 1)
+
+# 	new_vertices = np.zeros(vertices.shape)
+# 	if vertices.size > 0:
+# 		new_vertices[:,[0,2,4,6]] = vertices[:,[0,2,4,6]] * ratio_w
+# 		new_vertices[:,[1,3,5,7]] = vertices[:,[1,3,5,7]] * ratio_h
+
+# 	# find random position
+# 	remain_h = img.height - length
+# 	remain_w = img.width - length
+# 	flag = True
+# 	cnt = 0
+# 	while flag and cnt < 1000:
+# 		cnt += 1
+# 		start_w = int(np.random.rand() * remain_w)
+# 		start_h = int(np.random.rand() * remain_h)
+# 		flag = is_cross_text([start_w, start_h], length, new_vertices[labels==1,:])
+# 	box = (start_w, start_h, start_w + length, start_h + length)
+# 	region = img.crop(box)
+# 	if new_vertices.size == 0:
+# 		return region, new_vertices	
+	
+# 	new_vertices[:,[0,2,4,6]] -= start_w
+# 	new_vertices[:,[1,3,5,7]] -= start_h
+# 	return region, new_vertices
+
 def crop_img(img, vertices, labels, length):
 	'''crop img patches to obtain batch and augment
 	Input:
@@ -209,6 +256,9 @@ def crop_img(img, vertices, labels, length):
 		new_vertices[:,[0,2,4,6]] = vertices[:,[0,2,4,6]] * ratio_w
 		new_vertices[:,[1,3,5,7]] = vertices[:,[1,3,5,7]] * ratio_h
 
+	# convert image to numpy array
+	img_array = np.array(img)
+
 	# find random position
 	remain_h = img.height - length
 	remain_w = img.width - length
@@ -218,8 +268,18 @@ def crop_img(img, vertices, labels, length):
 		cnt += 1
 		start_w = int(np.random.rand() * remain_w)
 		start_h = int(np.random.rand() * remain_h)
+		box = (start_w, start_h, start_w + length, start_h + length)
+		region = img_array[start_h:start_h + length, start_w:start_w + length]
+		# check the percentage of black pixels in the region
+		black_pixel_count = np.sum(np.all(region == [0, 0, 0], axis=-1))  # assuming black is [0, 0, 0] in RGB
+		black_pixel_ratio = black_pixel_count / (length * length)
+		
+		if black_pixel_ratio > 0.20:  # 20% threshold
+			continue
 		flag = is_cross_text([start_w, start_h], length, new_vertices[labels==1,:])
-	box = (start_w, start_h, start_w + length, start_h + length)
+	
+	# convert cropped region back to PIL image
+
 	region = img.crop(box)
 	if new_vertices.size == 0:
 		return region, new_vertices	
@@ -227,7 +287,6 @@ def crop_img(img, vertices, labels, length):
 	new_vertices[:,[0,2,4,6]] -= start_w
 	new_vertices[:,[1,3,5,7]] -= start_h
 	return region, new_vertices
-
 
 def rotate_all_pixels(rotate_mat, anchor_x, anchor_y, length):
 	'''get rotated locations of all pixels for next stages
@@ -312,7 +371,7 @@ def rotate_img_and_resize(img, vertices, angle_range=(-170, 170)):
     cx, cy = width // 2, height // 2
 
     # PIL 이미지를 회전
-    img = img.rotate(rotation_angle, resample=Image.BILINEAR, expand=True)
+    img = img.rotate(rotation_angle, resample=Image.BILINEAR, expand = True)
 
     # 회전 후의 이미지 크기 계산
     new_width, new_height = img.size
@@ -495,7 +554,7 @@ class custom_dataset(data.Dataset):
 		img, vertices = perspect_transform(img, vertices)
 		img, vertices = adjust_height(img, vertices)
 		# img, vertices = rotate_img(img, vertices)
-		# img, vertices = crop_img(img, vertices, labels, self.length)
+		img, vertices = crop_img(img, vertices, labels, self.length)
 		transform = transforms.Compose([transforms.ColorJitter(0.5, 0.5, 0.5, 0.25), \
                                         transforms.ToTensor(), \
                                         transforms.Normalize(mean=(0.5,0.5,0.5),std=(0.5,0.5,0.5))])
