@@ -25,19 +25,20 @@ def train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers,
 		data_parallel = True
 	model.to(device)
 	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-	scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[40, 80, 120, 160], gamma=0.5)
+	scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100, 150, 200, 250, 300, 350], gamma=0.5)
 
 	if resume_epoch is not None:
 		checkpoint_path = os.path.join(pths_path, f'model_epoch_{resume_epoch}.pth')
-		state_dict = torch.load(checkpoint_path, map_location=device)
-		model.load_state_dict(state_dict)
-		start_epoch = resume_epoch
+		checkpoint = torch.load(checkpoint_path, map_location=device)
+		model.load_state_dict(checkpoint['model_state_dict'])
+		optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+		scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+		start_epoch = checkpoint['epoch']
 	else:
 		start_epoch = 0
 
-	for epoch in range(start_epoch, epoch_iter):	
+	for epoch in range(start_epoch, epoch_iter):
 		model.train()
-		scheduler.step()
 		epoch_loss = 0
 		epoch_time = time.time()
 		for i, (img, gt_score, gt_geo, ignored_map) in enumerate(train_loader):
@@ -54,12 +55,20 @@ def train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers,
 			print('Epoch is [{}/{}], mini-batch is [{}/{}], time consumption is {:.8f}, batch_loss is {:.8f}'.format(\
 				epoch+1, epoch_iter, i+1, int(file_num/batch_size), time.time()-start_time, loss.item()))
 		
-		print('epoch_loss is {:.8f}, epoch_time is {:.8f}'.format(epoch_loss/int(file_num/batch_size), time.time()-epoch_time))
+		scheduler.step()
+		current_lr = optimizer.param_groups[0]['lr']
+		print('epoch_loss is {:.8f}, epoch_time is {:.8f}, lr : {:.8f}'.format(epoch_loss/int(file_num/batch_size), time.time()-epoch_time, current_lr))
 		print(time.asctime(time.localtime(time.time())))
 		print('='*50)
 		if (epoch + 1) % interval == 0:
-			state_dict = model.module.state_dict() if data_parallel else model.state_dict()
-			torch.save(state_dict, os.path.join(pths_path, 'model_epoch_{}.pth'.format(epoch+1)))
+			state = {
+				'model_state_dict': model.module.state_dict() if data_parallel else model.state_dict(),
+				'optimizer_state_dict': optimizer.state_dict(),
+				'scheduler_state_dict': scheduler.state_dict(),
+				'epoch': epoch + 1
+			}
+			torch.save(state, os.path.join(pths_path, 'model_epoch_{}.pth'.format(epoch+1)))
+
 
 
 if __name__ == '__main__':
@@ -69,8 +78,8 @@ if __name__ == '__main__':
 	batch_size     = 32 
 	lr             = 1e-3
 	num_workers    = 4
-	epoch_iter     = 200
+	epoch_iter     = 400
 	save_interval  = 5
-	resume_epoch   = None # Default = None
+	resume_epoch   = 10 # Default = None
 	train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers, epoch_iter, save_interval, resume_epoch)
 	

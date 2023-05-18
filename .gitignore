@@ -4,5 +4,6 @@ EAST/pths/east_vgg16.pth
 EAST/pths/vgg16_bn-6c64b313.pth
 EAST/pths/Test_1/
 EAST/pths/Test_2/
+EAST/pths/Test_3/
 EAST/submit
 AugTest

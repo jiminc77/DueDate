@@ -181,13 +181,13 @@ def detect_dataset(model, device, test_img_path, submit_path):
 
 
 if __name__ == '__main__':
-	img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images/test_00001.jpg'
-	# img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/real_images/real_test_5.jpg'
-	model_path  = './pths/Test_2/model_epoch_200.pth'
+	# img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images/test_00132.jpg'
+	img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/real_images/real_test_6.jpg'
+	model_path  = './pths/model_epoch_235.pth'
 	res_img     = './res.bmp'
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	model = EAST().to(device)
-	model.load_state_dict(torch.load(model_path))
+	model.load_state_dict(torch.load(model_path)['model_state_dict'])
 	model.eval()
 	img = Image.open(img_path)
  	# PIL 이미지 회전시
