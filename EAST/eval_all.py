@@ -17,7 +17,7 @@ def eval_model(model_name, test_img_path, submit_path, save_flag=True):
 
 	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 	model = EAST(False).to(device)
-	model.load_state_dict(torch.load(model_name))
+	model.load_state_dict(torch.load(model_name)['model_state_dict'])
 	model.eval()
 
 	start_time = time.time()
@@ -51,8 +51,8 @@ def plot_metrics(epochs, precisions, recalls, hmeans):
 
 
 if __name__ == '__main__': 
-	model_dir = '/home/jovyan/DueDate/EAST/pths/Test_2'
-	test_img_path = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images'
+	model_dir = '/home/jovyan/DueDate/EAST/pths/Test_4'
+	test_img_path = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images_new'
 	submit_path = '/home/jovyan/DueDate/EAST/submit'
 
 	precisions = []
@@ -67,7 +67,7 @@ if __name__ == '__main__':
 			model_path = os.path.join(model_dir, model_name)
 			print(f'Evaluating model: {model_name}')
 			result = eval_model(model_path, test_img_path, submit_path)
-			if not result.startswith('Calculated!'):  # 변경된 부분
+			if not result.startswith('Calculated!'):
 				print(f'No result for {model_name}\n')
 				continue
 			result = result[len('Calculated!'):].strip()
@@ -80,5 +80,5 @@ if __name__ == '__main__':
 			hmeans.append(hmean)
 			print(f'Precision: {precision}, Recall: {recall}, H-mean: {hmean}\n')
 
-	save_path = '/home/jovyan/DueDate/EAST/pths/Test_2/performance_metrics_per_epoch.png'
+	save_path = '/home/jovyan/DueDate/EAST/pths/Test_4/performance_metrics_per_epoch.png'
 	plot_metrics(epochs, precisions, recalls, hmeans)

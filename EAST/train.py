@@ -25,7 +25,7 @@ def train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers,
 		data_parallel = True
 	model.to(device)
 	optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-	scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100, 150, 200, 250, 300, 350], gamma=0.5)
+	scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[50, 100, 150, 200, 250, 300, 350, 400, 500], gamma=0.8)
 
 	if resume_epoch is not None:
 		checkpoint_path = os.path.join(pths_path, f'model_epoch_{resume_epoch}.pth')
@@ -78,8 +78,8 @@ if __name__ == '__main__':
 	batch_size     = 32 
 	lr             = 1e-3
 	num_workers    = 4
-	epoch_iter     = 400
+	epoch_iter     = 600
 	save_interval  = 5
-	resume_epoch   = 10 # Default = None
+	resume_epoch   = 420 # Default = None
 	train(train_img_path, train_gt_path, pths_path, batch_size, lr, num_workers, epoch_iter, save_interval, resume_epoch)
 	

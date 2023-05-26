@@ -186,6 +186,35 @@ def is_cross_text(start_loc, length, vertices):
 				return True
 	return False
 
+
+def True_cross_text(start_loc, length, vertices):
+	'''check if the crop image crosses text regions
+	Input:
+		start_loc: left-top position
+		length   : length of crop image
+		vertices : vertices of text regions <numpy.ndarray, (n,8)>
+	Output:
+		True if crop image crosses text region
+	'''
+	if vertices.size == 0:
+		return False
+	start_w, start_h = start_loc
+	a = np.array([start_w, start_h, start_w + length, start_h, \
+          start_w + length, start_h + length, start_w, start_h + length]).reshape((4,2))
+	p1 = Polygon(a).convex_hull
+	for vertice in vertices:
+		vertice = vertice.reshape((4,2))
+		# check if the points can form a valid polygon
+		if not MultiPoint(vertice).is_valid:
+			continue
+		p2 = Polygon(vertice).convex_hull
+		# check if the intersection is valid
+		# if p1.intersects(p2):
+		inter = p1.intersection(p2).area
+		if inter / p2.area != 1: 
+			return True
+	return False
+
 def crop_img(img, vertices, labels, length, cx, cy, rotation_matrix):
 	'''crop img patches to obtain batch and augment
 	Input:
@@ -263,50 +292,82 @@ def crop_img(img, vertices, labels, length, cx, cy, rotation_matrix):
 	new_vertices[:,[1,3,5,7]] -= crop_start_h
 	return region, new_vertices
 
-# def crop_img(img, vertices, labels, length):
-# 	'''crop img patches to obtain batch and augment
-# 	Input:
-# 		img         : PIL Image
-# 		vertices    : vertices of text regions <numpy.ndarray, (n,8)>
-# 		labels      : 1->valid, 0->ignore, <numpy.ndarray, (n,)>
-# 		length      : length of cropped image region
-# 	Output:
-# 		region      : cropped image region
-# 		new_vertices: new vertices in cropped region
-# 	'''
-# 	h, w = img.height, img.width
-# 	# confirm the shortest side of image >= length
-# 	if h >= w and w < length:
-# 		img = img.resize((length, int(h * length / w)), Image.BILINEAR)
-# 	elif h < w and h < length:
-# 		img = img.resize((int(w * length / h), length), Image.BILINEAR)
-# 	ratio_w = img.width / w
-# 	ratio_h = img.height / h
-# 	assert(ratio_w >= 1 and ratio_h >= 1)
+def crop_img_maker(img, vertices, labels, length, cx, cy, rotation_matrix):
+	'''crop img patches to obtain batch and augment
+	Input:
+		img         : PIL Image
+		vertices    : vertices of text regions <numpy.ndarray, (n,8)>
+		labels      : 1->valid, 0->ignore, <numpy.ndarray, (n,)>
+		length      : length of cropped image region
+	Output:
+		region      : cropped image region
+		new_vertices: new vertices in cropped region
+	'''
+	h, w = img.height, img.width
+	# confirm the shortest side of image >= length
+	if h >= w and w < length:
+		img = img.resize((length, int(h * length / w)), Image.BILINEAR)
+	elif h < w and h < length:
+		img = img.resize((int(w * length / h), length), Image.BILINEAR)
+	ratio_w = img.width / w
+	ratio_h = img.height / h
+	assert(ratio_w >= 1 and ratio_h >= 1)
 
-# 	new_vertices = np.zeros(vertices.shape)
-# 	if vertices.size > 0:
-# 		new_vertices[:,[0,2,4,6]] = vertices[:,[0,2,4,6]] * ratio_w
-# 		new_vertices[:,[1,3,5,7]] = vertices[:,[1,3,5,7]] * ratio_h
+	new_vertices = np.zeros(vertices.shape)
+	if vertices.size > 0:
+		new_vertices[:,[0,2,4,6]] = vertices[:,[0,2,4,6]] * ratio_w
+		new_vertices[:,[1,3,5,7]] = vertices[:,[1,3,5,7]] * ratio_h
 
-# 	# find random position
-# 	remain_h = img.height - length
-# 	remain_w = img.width - length
-# 	flag = True
-# 	cnt = 0
-# 	while flag and cnt < 1000:
-# 		cnt += 1
-# 		start_w = int(np.random.rand() * remain_w)
-# 		start_h = int(np.random.rand() * remain_h)
-# 		flag = is_cross_text([start_w, start_h], length, new_vertices[labels==1,:])
-# 	box = (start_w, start_h, start_w + length, start_h + length)
-# 	region = img.crop(box)
-# 	if new_vertices.size == 0:
-# 		return region, new_vertices	
+	# convert image to numpy array
+	img_array = np.array(img)
+ 
+	flag = True
+	cnt = 0
+
+	remain_h = img.height - length
+	remain_w = img.width - length
+
+	# calculate 30% of width and height for the buffer
+	buffer_w = int(0.3 * remain_w)
+	buffer_h = int(0.3 * remain_h)
+
+	# adjust remaining width and height considering buffer
+	remain_w = remain_w - 2 * buffer_w
+	remain_h = remain_h - 2 * buffer_h
+
+	while flag and cnt < 1000:
+		cnt += 1
+		crop_start_w = int(np.random.rand() * remain_w) + buffer_w + length/2
+		crop_start_h = int(np.random.rand() * remain_h) + buffer_h + length/2
+
+		# 추가: crop 시작점을 원점으로 이동
+		crop_start = np.array([crop_start_w, crop_start_h]) - np.array([cx, cy])
+
+		# 추가: crop 시작점 회전
+		new_crop_start = np.dot(crop_start, rotation_matrix.T)
+
+		# 추가: 회전된 crop 시작점 이동
+		new_crop_start += np.array([img.width // 2, img.height // 2])
+
+		new_crop_start_w, new_crop_start_h = new_crop_start
+
+		crop_start_w = int(crop_start_w - length/2)
+		crop_start_h = int(crop_start_h - length/2)
+
+		box = (crop_start_w, crop_start_h, crop_start_w + length, crop_start_h + length)
+		region = img_array[crop_start_h:crop_start_h + length, crop_start_w:crop_start_w + length]
+		flag = True_cross_text([crop_start_w, crop_start_h], length, new_vertices[labels==1,:])
+
 	
-# 	new_vertices[:,[0,2,4,6]] -= start_w
-# 	new_vertices[:,[1,3,5,7]] -= start_h
-# 	return region, new_vertices
+	# convert cropped region back to PIL image
+
+	region = img.crop(box)
+	if new_vertices.size == 0:
+		return region, new_vertices	
+	
+	new_vertices[:,[0,2,4,6]] -= crop_start_w
+	new_vertices[:,[1,3,5,7]] -= crop_start_h
+	return region, new_vertices
 
 def rotate_all_pixels(rotate_mat, anchor_x, anchor_y, length):
 	'''get rotated locations of all pixels for next stages
