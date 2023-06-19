@@ -1,4 +1,6 @@
 Dataset/
+*.png
+*.jpg
 # bbox/bbox_show/
 EAST/pths/east_vgg16.pth
 EAST/pths/vgg16_bn-6c64b313.pth
@@ -7,4 +9,8 @@ EAST/pths/Test_2/
 EAST/pths/Test_3/
 EAST/pths
 EAST/submit
-# AugTest
+Dataset/Products-All/test.py
+AugTest/Aug_test/
+AugTest/Test_GT/
+AugTest/Test_Img/
+
