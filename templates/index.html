@@ -1,0 +1,19 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Video Streaming</title>
+    </head>
+    <body>
+        <h1>Expiration Date:</h1>
+        <h2 id="exp-date">Loading...</h2>
+        <img src="{{ url_for('video_feed') }}" />
+        <script>
+            // WebSocket을 통해 최신 Expiration Date를 받아옴
+            let socket = new WebSocket("ws://localhost:5000/ws");
+            socket.onmessage = function(event) {
+                document.getElementById("exp-date").innerText = event.data;
+            }
+        </script>
+    </body>
+</html>
