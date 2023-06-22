@@ -6,6 +6,7 @@ import os
 from dataset import get_rotate_mat
 import numpy as np
 import lanms
+import cv2
 
 
 def resize_img(img):
@@ -86,7 +87,7 @@ def restore_polys(valid_pos, valid_geo, score_shape, scale=4):
 	return np.array(polys), index
 
 
-def get_boxes(score, geo, score_thresh=0.9, nms_thresh=0.2):
+def get_boxes(score, geo, score_thresh=0.95, nms_thresh=0.5):
 	'''get boxes from feature map
 	Input:
 		score       : score map from model <numpy.ndarray, (1,row,col)>
@@ -155,7 +156,7 @@ def plot_boxes(img, boxes):
 	
 	draw = ImageDraw.Draw(img)
 	for box in boxes:
-		draw.polygon([box[0], box[1], box[2], box[3], box[4], box[5], box[6], box[7]], outline=(0,255,0))
+		draw.polygon([box[0], box[1], box[2], box[3], box[4], box[5], box[6], box[7]], outline=(255,0,0))
 	return img
 
 
@@ -179,34 +180,57 @@ def detect_dataset(model, device, test_img_path, submit_path):
 		with open(os.path.join(submit_path, 'res_' + os.path.basename(img_file).replace('.jpg','.txt')), 'w') as f:
 			f.writelines(seq)
 
+def main():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = EAST().to(device)
+    model.load_state_dict(torch.load(model_path)['model_state_dict'])
+    model.eval()
+    
+    cap = cv2.VideoCapture(video_path)
+
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    out = cv2.VideoWriter('output.mp4', fourcc, fps, (width, height))
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+
+        if hasattr(img, '_getexif'): 
+            orientation = 0x0112
+            exif = img._getexif()
+            if exif is not None:
+                orientation = exif[orientation]
+                if orientation in [3, 6, 8]:
+                    if orientation == 3:
+                        img = img.transpose(Image.ROTATE_180)
+                    elif orientation == 6:
+                        img = img.transpose(Image.ROTATE_270)
+                    elif orientation == 8:
+                        img = img.transpose(Image.ROTATE_90)
+
+        boxes = detect(img, model, device)
+        plot_img = plot_boxes(img, boxes)
+
+        out.write(cv2.cvtColor(np.array(plot_img), cv2.COLOR_RGB2BGR))
+
+    cap.release()
+    out.release()
+	# plot_img.save(res_img)
 
 if __name__ == '__main__':
-	img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images_new/test_00032.png'
-	# img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/real_images/real_test_9.jpg'
-	model_path  = './pths/model_epoch_600.pth'
+	img_path    = '/home/jovyan/DueDate/Dataset/Products-All/val/images/img_00251.jpg'
+	# img_path    = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/real_images/real_test_3.jpg'
+	# img_path    = '/home/jovyan/DueDate/Dataset/Products-All/images/img_00430.jpg'
+	video_path = '/home/jovyan/DueDate/Dataset/Video_Demo/Demo_1.mp4'
+	model_path  = '/home/jovyan/DueDate/EAST/pths/best_model.pth'
 	res_img     = './res.bmp'
-	device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-	model = EAST().to(device)
-	model.load_state_dict(torch.load(model_path)['model_state_dict'])
-	model.eval()
-	img = Image.open(img_path)
- 	# PIL 이미지 회전시
-	if hasattr(img, '_getexif'):
-		orientation = 0x0112
-		exif = img._getexif()
-		if exif is not None:
-			orientation = exif[orientation]
-			if orientation in [3, 6, 8]:
-				# 이미지 회전
-				if orientation == 3:
-					img = img.transpose(Image.ROTATE_180)
-				elif orientation == 6:
-					img = img.transpose(Image.ROTATE_270)
-				elif orientation == 8:
-					img = img.transpose(Image.ROTATE_90)
+ 
+	main()
 	
-	boxes = detect(img, model, device)
-	plot_img = plot_boxes(img, boxes)	
-	plot_img.save(res_img)
-
 
