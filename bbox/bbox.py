@@ -23,6 +23,8 @@ def main(args):
         image = cv2.imread(image_path)
         
         for ann in img_info['ann']:
+            cls = ann['cls']
+            # if cls == 'date':
             bbox = ann['bbox']
             x_min, y_min, x_max, y_max = bbox
             cv2.rectangle(image, (x_min, y_min), (x_max, y_max), (255, 0, 0), 2)

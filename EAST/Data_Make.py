@@ -13,33 +13,35 @@ import cv2
 from PIL import Image
 import os
 
-img_path = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images'
-gt_path = '/home/jovyan/DueDate/Dataset/Products-Real/evaluation/annotations(txt)'
+img_path = '/home/jovyan/DueDate/Dataset/Products-RS/images'
+gt_path = '/home/jovyan/DueDate/Dataset/Products-RS/annotations(txt)'
 gt_files = [os.path.join(gt_path, gt_file) for gt_file in sorted(os.listdir(gt_path))]
 img_files = [os.path.join(img_path, img_file) for img_file in sorted(os.listdir(img_path))]
+num_files = len([f for f in os.listdir(img_path)])
 scale=0.25
 length=512
 
-for i in range(665):
+for i in range(num_files):
     print(f"idx : {i}")
     with open(gt_files[i], 'r') as f:
         lines = f.readlines()
     vertices, labels = extract_vertices(lines)
-    angle_range = (-170, 170)
+    angle_range = (-175, 175)
     img = Image.open(img_files[i])
 
     img, vertices, cx, cy, rotation_matrix = rotate_img_and_resize(img, vertices, angle_range)
     img, vertices = affine_transform(img, vertices)
     img, vertices = perspect_transform(img, vertices)
-    # img, vertices = adjust_height(img, vertices)
-    # img, vertices = crop_img_maker(img, vertices, labels, length, cx, cy, rotation_matrix)
-    # img, vertices = rotate_img(img, vertices)
-    # get_score_geo(img, vertices, labels, scale, length)
 
-    img.save(f'/home/jovyan/DueDate/Dataset/Products-Real/evaluation/images_new/test_{str(i+1).zfill(5)}.png')
+    img.save(f'/home/jovyan/DueDate/Dataset/Products-All/images/img_{str(i+1).zfill(5)}.jpg')
 
-
-    with open(f'/home/jovyan/DueDate/Dataset/Products-Real/evaluation/annotations(txt)_new/gt_img_test_{str(i+1).zfill(5)}.txt', 'w') as f:
-        for vertex in vertices[labels==1,:]:
+    with open(f'/home/jovyan/DueDate/Dataset/Products-All/annotations(txt)/gt_img_{str(i+1).zfill(5)}.txt', 'w') as f:
+        for vertex, label in zip(vertices, labels):
             line = ','.join(map(str, vertex))
+            if label == 1:
+                line += ',1'
+            else:
+                line += ',###'
             f.write(line + '\n')
+            
+            # [labels==1,:]

@@ -1,6 +1,7 @@
 from shapely.geometry import Polygon, MultiPoint
 import numpy as np
 import cv2
+import random
 from PIL import Image
 import math
 import os
@@ -215,7 +216,7 @@ def True_cross_text(start_loc, length, vertices):
 			return True
 	return False
 
-def crop_img(img, vertices, labels, length, cx, cy, rotation_matrix):
+def crop_img(img, vertices, labels, length):
 	'''crop img patches to obtain batch and augment
 	Input:
 		img         : PIL Image
@@ -258,21 +259,21 @@ def crop_img(img, vertices, labels, length, cx, cy, rotation_matrix):
 	remain_w = remain_w - 2 * buffer_w
 	remain_h = remain_h - 2 * buffer_h
 
-	while flag and cnt < 1000:
+	while flag and cnt < 10000:
 		cnt += 1
 		crop_start_w = int(np.random.rand() * remain_w) + buffer_w + length/2
 		crop_start_h = int(np.random.rand() * remain_h) + buffer_h + length/2
 
-		# 추가: crop 시작점을 원점으로 이동
-		crop_start = np.array([crop_start_w, crop_start_h]) - np.array([cx, cy])
+		# # 추가: crop 시작점을 원점으로 이동
+		# crop_start = np.array([crop_start_w, crop_start_h]) - np.array([cx, cy])
 
-		# 추가: crop 시작점 회전
-		new_crop_start = np.dot(crop_start, rotation_matrix.T)
+		# # 추가: crop 시작점 회전
+		# new_crop_start = np.dot(crop_start, rotation_matrix.T)
 
-		# 추가: 회전된 crop 시작점 이동
-		new_crop_start += np.array([img.width // 2, img.height // 2])
+		# # 추가: 회전된 crop 시작점 이동
+		# new_crop_start += np.array([img.width // 2, img.height // 2])
 
-		new_crop_start_w, new_crop_start_h = new_crop_start
+		# new_crop_start_w, new_crop_start_h = new_crop_start
 
 		crop_start_w = int(crop_start_w - length/2)
 		crop_start_h = int(crop_start_h - length/2)
@@ -545,7 +546,7 @@ def extract_vertices(lines):
 	labels = []
 	vertices = []
 	for line in lines:
-		vertices.append(list(map(int,line.rstrip('\n').lstrip('\ufeff').split(',')[:8])))
+		vertices.append(list(map(float,line.rstrip('\n').lstrip('\ufeff').split(',')[:8])))
 		label = 0 if '###' in line else 1
 		labels.append(label)
 	return np.array(vertices), np.array(labels)
@@ -612,6 +613,29 @@ def perspect_transform(img, vertices):
 	transformed_vertices = cv2.perspectiveTransform(src_vertices, perspect_matrix)
 
 	return transformed_img_pil, transformed_vertices.reshape(-1, 8)
+
+def randomly_scale_image(img, vertices):
+    width, height = img.width, img.height
+    max_dim = max(width, height)
+    
+    size_1 = 1200
+    size_2 = 1800
+    
+    if max_dim > size_1 and max_dim < size_2:
+        scale_ratio = random.uniform(0.5, 1.0)
+        new_width = int(width * scale_ratio)
+        new_height = int(height * scale_ratio)
+        img = img.resize((new_width, new_height), Image.ANTIALIAS)
+        if vertices.size > 0:
+            vertices = vertices * scale_ratio
+    elif max_dim > size_2:
+        scale_ratio = random.uniform(0.3, 0.9)
+        new_width = int(width * scale_ratio)
+        new_height = int(height * scale_ratio)
+        img = img.resize((new_width, new_height), Image.ANTIALIAS)
+        if vertices.size > 0:
+            vertices = vertices * scale_ratio
+    return img, vertices
 	
 class custom_dataset(data.Dataset):
 	def __init__(self, img_path, gt_path, scale=0.25, length=512):
@@ -628,13 +652,14 @@ class custom_dataset(data.Dataset):
 		with open(self.gt_files[index], 'r') as f:
 			lines = f.readlines()
 		vertices, labels = extract_vertices(lines)
-		angle_range = (-170, 170)
+		# angle_range = (-170, 170)
 		img = Image.open(self.img_files[index])
-		img, vertices, cx, cy, rotation_matrix = rotate_img_and_resize(img, vertices, angle_range)
-		img, vertices = affine_transform(img, vertices)
-		img, vertices = perspect_transform(img, vertices)
+		img, vertices = randomly_scale_image(img, vertices)
+		# img, vertices, cx, cy, rotation_matrix = rotate_img_and_resize(img, vertices, angle_range)
+		# img, vertices = affine_transform(img, vertices)
+		# img, vertices = perspect_transform(img, vertices)
 		img, vertices = adjust_height(img, vertices)
-		img, vertices = crop_img(img, vertices, labels, self.length, cx, cy, rotation_matrix)
+		img, vertices = crop_img(img, vertices, labels, self.length)
 
 		transform = transforms.Compose([transforms.ColorJitter(0.5, 0.5, 0.5, 0.25), \
                                         transforms.ToTensor(), \
