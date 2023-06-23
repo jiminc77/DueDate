@@ -29,4 +29,4 @@ After cloning and pth files, organize your folders as shown below
 
 For more information, see [this](https://www.notion.so/jiminc/Spring-Internship-2023-1e87ffee81734998adb530e8e9e4b449?pvs=4#37de1dbfff3045daaf70ce1f656ca8b8) pages.
 
-![화면 캡처 2023-06-23 172840](https://github.com/jiminc77/DueDate/assets/91927189/b7b30b43-3316-46fa-8c9f-9c6622321a04)
+![demo](https://github.com/jiminc77/DueDate/assets/91927189/77620dfd-9598-47fc-ac7f-7b9934bfefc4)
