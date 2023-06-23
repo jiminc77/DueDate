@@ -1,6 +1,7 @@
 Dataset/
 *.png
 *.jpg
+*.mp4
 # bbox/bbox_show/
 EAST/pths/east_vgg16.pth
 EAST/pths/vgg16_bn-6c64b313.pth
