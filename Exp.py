@@ -28,31 +28,6 @@ import argparse
 import datetime
 import torchvision
 
-class CustomDataset(torch.utils.data.Dataset):
-    def __init__(self, image_list, opt):
-        self.image_list = image_list
-        self.opt = opt
-        self.nSamples = len(self.image_list)
-
-    def __len__(self):
-        return self.nSamples
-
-    def __getitem__(self, index):
-        try:
-            img = Image.fromarray(self.image_list[index])
-            if self.opt.rgb:
-                img = img.convert('RGB')  # for color image
-            else:
-                img = img.convert('L')
-
-        except IOError:
-            print(f'Corrupted image for {index}')
-            # make dummy image and dummy label for corrupted image.
-            if self.opt.rgb:
-                img = Image.new('RGB', (self.opt.imgW, self.opt.imgH))
-            else:
-                img = Image.new('L', (self.opt.imgW, self.opt.imgH))
-        return (img, 'Image_' + str(index))
 
 def resize_img(img):
 	'''resize image to be divisible by 32
@@ -200,7 +175,7 @@ def plot_boxes(img, boxes):
 	
 	draw = ImageDraw.Draw(img)
 	for box in boxes:
-		draw.polygon([box[0], box[1], box[2], box[3], box[4], box[5], box[6], box[7]], outline=(0,255,0))
+		draw.polygon([box[0], box[1], box[2], box[3], box[4], box[5], box[6], box[7]], outline=(0,255,255))
 	return img
 
 
@@ -238,59 +213,13 @@ def rotate_parallelogram(img, box, index):
     return [img_cropped, img_cropped_rotate]
 
 
-def Text_Recog(opt, image_list):
-
-    converter = CTCLabelConverter(opt.character)
-    opt.num_class = len(converter.character)
-    opt.input_channel = 3
-    model = Model(opt)
-    model = torch.nn.DataParallel(model).to(device)
-
-    model.load_state_dict(torch.load(opt.saved_model, map_location=device))
-
-    AlignCollate_demo = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
-    demo_data = CustomDataset(image_list, opt) 
-    demo_loader = torch.utils.data.DataLoader(
-        demo_data, batch_size=opt.batch_size,
-        shuffle=False,
-        num_workers=int(opt.workers),
-        collate_fn=AlignCollate_demo, pin_memory=True)
-
-    # predict
-    model.eval()
-    idx = 0
-    with torch.no_grad():
-        for image_tensors, image_path_list in demo_loader:
-            
-            batch_size = image_tensors.size(0)
-            image = image_tensors.to(device)
-
-            length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(device)
-            text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
-
-            preds = model(image, text_for_pred)
-
-            preds_size = torch.IntTensor([preds.size(1)] * batch_size)
-            _, preds_index = preds.max(2)
-            preds_str = converter.decode(preds_index, preds_size)
-
-            dashed_line = '-' * 80
-            head = f'{"image_idx":25s}\t{"predicted_labels":25s}\tconfidence score'
-            
-            print(f'{dashed_line}\n{head}\n{dashed_line}')
-
-            preds_prob = F.softmax(preds, dim=2)
-            preds_max_prob, _ = preds_prob.max(dim=2)
-            for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
-                idx += 1
-                # calculate confidence score (= multiply of pred_max_prob)
-                confidence_score = pred_max_prob.cumprod(dim=0)[-1]
-                print(f'{idx:<32d}{pred:<32s}{confidence_score:<0.4f}')
-
-
 def Text_Recog_single_image(opt, model_text_recog, converter, image, device):
-    
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    cv2.imwrite('before.png', image)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    image[:,:,0] = clahe.apply(image[:,:,0])
+    image[:,:,1] = clahe.apply(image[:,:,1])
+    image[:,:,2] = clahe.apply(image[:,:,2])
     image = cv2.resize(image, (opt.imgW, opt.imgH), interpolation=cv2.INTER_LINEAR)
     image = Image.fromarray(image)
     image = torchvision.transforms.ToTensor()(image).unsqueeze(0)
@@ -395,7 +324,7 @@ def main(opt):
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
-    out = cv2.VideoWriter('output_6.mp4', fourcc, fps, (width, height))
+    out = cv2.VideoWriter(opt.output_name, fourcc, fps, (width, height))
 
     pred_freq = defaultdict(int)
     max_freq_pred = None
@@ -422,8 +351,6 @@ def main(opt):
 
         boxes = detect(img, model, device)
         plot_img = plot_boxes(img, boxes)
-
-        out.write(cv2.cvtColor(np.array(plot_img), cv2.COLOR_RGB2BGR))
         
         if boxes is not None:
             for i, box in enumerate(boxes):
@@ -440,13 +367,20 @@ def main(opt):
         
         if pred_freq:
             max_freq_pred = max(pred_freq, key=pred_freq.get)
-        if max_freq_pred is not None:
+        
+        if max_freq_pred:
             print("\n" + "=" * 30)
             print(f'  Expiration Date : {str(max_freq_pred)}  ')
             print("=" * 30 + "\n")
 
-        out.write(cv2.cvtColor(np.array(frame), cv2.COLOR_RGB2BGR))
-             
+            frame = cv2.cvtColor(np.array(plot_img), cv2.COLOR_RGB2BGR)
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            text = f" Expiration Date : {max_freq_pred}"
+            cv2.rectangle(frame, (10, 30), (550, 70), (0, 255, 0), -1)
+            cv2.putText(frame, text, (10, 50), font, 1, (0, 0, 0), 2, cv2.LINE_AA)
+        
+        out.write(frame)
+
     cap.release()
     out.release()
 
@@ -473,8 +407,10 @@ if __name__ == '__main__':
     parser.add_argument('--output_channel', type=int, default=512,help='the number of output channel of Feature extractor')
     parser.add_argument('--hidden_size', type=int, default=256, help='the size of the LSTM hidden state')
     """ Detector Setting """
-    parser.add_argument('--video_path', default = '/home/jovyan/DueDate/Dataset/Video_Demo/Demo_6.mp4', help='path to video which contains exp date object')
+    parser.add_argument('--video_path', default = '/home/jovyan/DueDate/Dataset/Video_Demo/Demo_8.mp4', help='path to video which contains exp date object')
     parser.add_argument('--model_path', default = '/home/jovyan/DueDate/EAST/pths/best_model.pth', help='path to text detection model')
+    """ Output Setting """
+    parser.add_argument('--output_name', default = 'output_8.mp4')
     opt = parser.parse_args()
     
     cudnn.benchmark = True
