@@ -25,3 +25,7 @@ After cloning and pth files, organize your folders as shown below
     │   ├── pths
     │   └── valid
     └── Exp.py
+
+
+For more information, see [this](https://www.notion.so/jiminc/Spring-Internship-2023-1e87ffee81734998adb530e8e9e4b449?pvs=4#37de1dbfff3045daaf70ce1f656ca8b8) pages.
+
