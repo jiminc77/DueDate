@@ -1,5 +1,5 @@
 # DueDate
- > Folder Structure to Inference <br/>
+ > A task to Detect & Recognize the expiration date of groceries <br/>
 
 After cloning and pth files, organize your folders as shown below
 
@@ -29,3 +29,4 @@ After cloning and pth files, organize your folders as shown below
 
 For more information, see [this](https://www.notion.so/jiminc/Spring-Internship-2023-1e87ffee81734998adb530e8e9e4b449?pvs=4#37de1dbfff3045daaf70ce1f656ca8b8) pages.
 
+https://github.com/jiminc77/DueDate/assets/91927189/197790d1-2e4d-467c-bb33-c402c2907285
